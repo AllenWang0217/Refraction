@@ -4,15 +4,43 @@
 #include <string>
 #include <iostream>
 #include <algorithm>
+#include <vector>
 
 using namespace std;
 
-void statement(Json::Value& invoice, Json::Value& plays)
+struct Play {
+    Play(string name, int cost, int seats) : name(name), cost(cost), seats(seats) {};
+    string name;
+    int cost;
+    int seats;
+};
+struct Bill {
+    Bill() {};
+    Bill(string customer) : customer(customer), total(0), credit(0) {};
+    string customer;
+    vector<Play> plays;
+    int total;
+    int credit;
+};
+
+void printBill(Bill& bill)
 {
     cout << "\n========" << "print statement" << "========" << endl;
+    cout << "Statement for : " << bill.customer.c_str() << endl;
+    for (int i = 0; i < bill.plays.size(); i++)
+    {
+        Play& play = bill.plays[i];
+        printf("    %s: %d (%d seats)\n", play.name.c_str(), play.cost, play.seats);
+    }
+    printf("Amount owed is %d\n", bill.total);
+    printf("You earned %d credits\n", bill.credit);
+}
+
+Bill statement(Json::Value& invoice, Json::Value& plays)
+{
     int totalAmount = 0;
     int volumeCredits = 0;
-    cout << "Statement for : " << invoice["customer"].asString() << endl;
+    Bill bill(invoice["customer"].asString());
 
     for (Json::Value& perf : invoice["performances"]) {
         Json::Value& play = plays[perf["playID"].asString()];
@@ -42,9 +70,12 @@ void statement(Json::Value& invoice, Json::Value& plays)
         // add extra credit for every ten comedy attendees
         if ("comedy" ==  play["type"].asString()) volumeCredits += floor(perf["audience"].asInt()/5);
         // print line for this order
-        printf("    %s: %d (%d seats)\n", play["name"].asString().c_str(), thisAmount, perf["audience"].asInt());
         totalAmount += thisAmount;
+        Play playPay(play["name"].asString(), thisAmount, perf["audience"].asInt());
+        bill.plays.push_back(playPay);
     }
-    printf("Amount owed is %d\n", totalAmount );
-    printf("You earned %d credits\n", volumeCredits);
+    bill.total = totalAmount;
+    bill.credit = volumeCredits;
+
+    return bill;
 }

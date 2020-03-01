@@ -1,19 +1,7 @@
-#include "frist-sample/include/json-reader/JsonReader.h"
-#include "frist-sample/include/statement/statement.h"
-#include <string>
+#include "gtest\gtest.h"
 
-int main() 
+int main(int argc, char **argv)
 {
-    Json::Value invoices;
-    std::string invoicesPath = "frist-sample\\data\\invoices.json";
-    jsonReader(invoicesPath, invoices);
-    printInvoices(invoices);
-
-    Json::Value plays;
-    std::string playsPath = "frist-sample\\data\\plays.json";
-    jsonReader(playsPath, plays);
-    printPlays(plays);
-
-    statement(invoices, plays);
-    return 0;
+    testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }

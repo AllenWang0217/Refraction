@@ -1,6 +1,10 @@
 # Refraction
 用C++实现 《重构 改善既有代码的设计 第2版》
 
+系统：win10
+
+IDE；VisualStudio 2015
+
 ## 第一章 重构，第一个实例
 
 背景：剧院请剧团演出。客户（剧院）会指定几出剧目，而剧团则根据观众人数以及剧目类型像客户（剧院）收费。剧目类型分两种：喜剧、悲剧。另外，再给客户（剧院）发出张丹时，还会根据观众人给出客户（剧院）“观众量积分”（volume credt）优惠，下次再请该剧团表演时可以用到。
@@ -38,7 +42,9 @@
 }
 ```
 
-前提：[用C++读取Json](https://www.jianshu.com/p/e0c1f3fdf6f9)
+### 初始代码
+
+前提：[用C++读取Json](https://www.jianshu.com/p/e0c1f3fdf6f9)([jsoncpp源码](https://github.com/open-source-parsers/jsoncpp))
 
 下面这个简单的函数用以打印账单详情（钱币单位做了简化）
 
@@ -86,6 +92,105 @@ void statement(Json::Value& invoice, Json::Value& plays)
 }
 ```
 
+输出：
+
+```
+Statement for : BigCo
+    Hamlet: 650 (55 seats)
+    As You Like It: 580 (35 seats)
+    Othello: 500 (40 seats)
+Amount owed is 1730
+You earned 47 credits
+```
+
+### 增加测试用例
+
+重构的第一步就是构建完备的测试用例，这里使用gtest进行测试（文中没有给出）
+
+前提：[gtest环境配置](https://www.jianshu.com/p/8cc54ef3d76b)([gtest源码](https://github.com/google/googletest))
+
+为了能进行测试，这里将账单的计算和打印分离（也算是一种优化吧）。构建一个账单类
+
+```cpp
+struct Play {
+    Play(string name, int cost, int seats) : name(name), cost(cost), seats(seats) {};
+    string name;
+    int cost;
+    int seats;
+};
+struct Bill {
+    Bill() {};
+    Bill(string customer) : customer(customer) , total(0), credit(0){};
+    string customer;
+    vector<Play> plays;
+    int total;
+    int credit;
+};
+```
+
+这样在接口调用的时候就可以分开调用
+
+```cpp
+    Bill& bill = statement(invoices, plays);
+    printBill(bill);
+```
+
+而我们要做的就是检验账单计算的正确性
+
+首先将预设环境设置为Json的读取和账单的计算
+
+```cpp
+struct TestStatement : public ::testing::Test
+{
+protected:
+    virtual void SetUp()
+    {
+        Json::Value invoices;
+        std::string invoicesPath = "frist-sample\\data\\invoices.json";
+        jsonReader(invoicesPath, invoices);
+        //printInvoices(invoices);
+
+        Json::Value plays;
+        std::string playsPath = "frist-sample\\data\\plays.json";
+        jsonReader(playsPath, plays);
+        //printPlays(plays);
+
+        bill = statement(invoices, plays);
+        printBill(bill);
+    }
+    Bill bill;
+};
+```
+
+然后对计算出来的账单进行校验
+
+```cpp
+TEST_F(TestStatement, case1)
+{
+    ASSERT_TRUE(bill.customer == "BigCo");
+    ASSERT_TRUE(bill.plays.size() == 3);
+    ASSERT_TRUE(bill.plays[0].name == "Hamlet");
+    ASSERT_TRUE(bill.plays[0].cost == 650);
+    ASSERT_TRUE(bill.plays[0].seats == 55);
+    ASSERT_TRUE(bill.plays[1].name == "As You Like It");
+    ASSERT_TRUE(bill.plays[1].cost == 580);
+    ASSERT_TRUE(bill.plays[1].seats == 35);
+    ASSERT_TRUE(bill.plays[2].name == "Othello");
+    ASSERT_TRUE(bill.plays[2].cost == 500);
+    ASSERT_TRUE(bill.plays[2].seats == 40);
+    ASSERT_TRUE(bill.total == 1730);
+    ASSERT_TRUE(bill.credit == 47);
+}
+```
+
+输出：
+
+![TestStatement.png](pic/TestStatement.png) 
+
+只要保证用例成功，我们就可以随意重构啦。
+
+
+
 ## 注
 
 ### Json读取代码
@@ -115,4 +220,6 @@ bool jsonReader(string& path, Json::Value& root)
     return true;
 }
 ```
+
+### 
 
