@@ -18,7 +18,7 @@ void printInvoices(Json::Value& root)
 
 void printPlays(Json::Value& root)
 {
-    cout << "========" << "plays.json" << "========" << endl;
+    cout << "\n========" << "plays.json" << "========" << endl;
     cout << "hamlet: {name: " << root["hamlet"]["name"].asString() << ", type:" << root["hamlet"]["type"].asString() << "}," << endl;
     cout << "as-like: {name: " << root["as-like"]["name"].asString() << ", type:" << root["as-like"]["type"].asString() << "}," << endl;
     cout << "othello: {name: " << root["othello"]["name"].asString() << ", type:" << root["othello"]["type"].asString() << "}" << endl;
