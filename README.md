@@ -185,9 +185,238 @@ TEST_F(TestStatement, case1)
 
 输出：
 
-![TestStatement.png](pic/TestStatement.png) 
+![TestStatement.png](./pic/TestStatement.png) 
 
 只要保证用例成功，我们就可以随意重构啦。
+
+### 分解statement函数
+
+1. 提炼剧目的计算函数，并且用result作为返回值（**提炼函数**）。可以得到如下：
+
+```cpp
+int amountFor(const Json::Value& performance, const Json::Value& play)
+{
+    int result = 0;
+    if (!strcmp(play["type"].asString().c_str(), "tragedy"))
+    {
+        result = 400;
+        if (performance["audience"].asInt() > 30) {
+            result += 10 * (performance["audience"].asInt() - 30);
+        }
+    }
+    else if (!strcmp(play["type"].asString().c_str(), "comedy"))
+    {
+        result = 300;
+        if (performance["audience"].asInt() > 20) {
+            result += 100 + 5 * (performance["audience"].asInt() - 20);
+        }
+        result += 3 * performance["audience"].asInt();
+    }
+    else
+    {
+        throw "unknow type";
+    }
+    return result;
+}
+
+Bill statement(Json::Value& invoice, Json::Value& plays)
+{
+    int totalAmount = 0;
+    int volumeCredits = 0;
+    Bill bill(invoice["customer"].asString());
+
+    for (Json::Value& perf : invoice["performances"]) {
+        const Json::Value& play = plays[perf["playID"].asString()];
+        int thisAmount = amountFor(perf, play);
+
+        // add volume credits
+        volumeCredits += max((perf["audience"].asInt() -  30), 0);
+        // add extra credit for every ten comedy attendees
+        if ("comedy" ==  play["type"].asString()) volumeCredits += floor(perf["audience"].asInt()/5);
+        // print line for this order
+        totalAmount += thisAmount;
+        Play playPay(play["name"].asString(), thisAmount, perf["audience"].asInt());
+        bill.plays.push_back(playPay);
+    }
+    bill.total = totalAmount;
+    bill.credit = volumeCredits;
+
+    return bill;
+}
+```
+
+另外书中提到了对于函数参数，在为参数取名时会带上默认类型名`amountFor(aPerformance,play)`，这一点在C++中部太适用，因为C++在函数声明是就必须指定入参类型（模板除外，但模板一般不会用在内置类型）。
+
+接下来，由于C++不支持内嵌函数，后面关于**以查询替代临时变量**、**内联变量**、**改变函数声明**(移除`play`参数)，就不再实现了。
+
+[^注]: 也可以构建一个类，将`performance`和`play`作为成员，通过函数入参初始化。然后将该类作为一个作用域，进行数据共享也是可以的，但本例就是一个面向过程的计算账单而已，没必要故意搞复杂了
+
+当然书中还提到了使用**内联变量**将`thisAmount`消除，故而函数改写为
+
+```cpp
+// 与书中不一样，这里使用宏实现 以查询替代临时变量
+#define PLAY plays[perf["playID"].asString()]
+
+Bill statement(Json::Value& invoice, Json::Value& plays)
+{
+    int totalAmount = 0;
+    int volumeCredits = 0;
+    Bill bill(invoice["customer"].asString());
+
+    for (Json::Value& perf : invoice["performances"]) {
+        // add volume credits
+        volumeCredits += max((perf["audience"].asInt() -  30), 0);
+        // add extra credit for every ten comedy attendees
+        if ("comedy" ==  PLAY["type"].asString()) volumeCredits += floor(perf["audience"].asInt()/5);
+        // print line for this order
+        totalAmount += amountFor(perf, PLAY);
+        Play playPay(PLAY["name"].asString(), amountFor(perf, PLAY), perf["audience"].asInt());
+        bill.plays.push_back(playPay);
+    }
+    bill.total = totalAmount;
+    bill.credit = volumeCredits;
+    return bill;
+}
+```
+
+[^ 注 ]: 因为这里`amountFor`使用了两遍[^书中也使用了两遍]，是一种影响性能的做法
+
+2. 提炼观众积分量函数
+
+   ```cpp
+   int volumeCreditsFor(const Json::Value& performance, const Json::Value& play) {
+       int result = 0;
+       result += max((performance["audience"].asInt() - 30), 0);
+       // add extra credit for every ten comedy attendees
+       if ("comedy" == play["type"].asString()) result += floor(performance["audience"].asInt() / 5);
+       return result;
+   }
+
+   #define PLAY plays[perf["playID"].asString()]
+   //顶层作用域
+   Bill statement(Json::Value& invoice, Json::Value& plays)
+   {
+       int totalAmount = 0;
+       int volumeCredits = 0;
+       Bill bill(invoice["customer"].asString());
+
+       for (Json::Value& perf : invoice["performances"]) {
+           volumeCredits += volumeCreditsFor(perf, PLAY);
+           totalAmount += amountFor(perf, PLAY);
+           Play playPay(PLAY["name"].asString(), amountFor(perf, PLAY), perf["audience"].asInt());
+           bill.plays.push_back(playPay);
+       }
+       bill.total = totalAmount;
+       bill.credit = volumeCredits;
+       return bill;
+   }
+   ```
+
+   3. **循环拆分**，将账单总和、观众量积分总和、打印拆分
+
+   ```cpp
+   #define PLAY plays[perf["playID"].asString()]
+   int totalAmount(Json::Value& invoice, Json::Value& plays)
+   {
+       int result = 0;
+       for (Json::Value& perf : invoice["performances"]) {
+           result += amountFor(perf, PLAY);
+       }
+       return result;
+   }
+   int totalVolumeCredits(Json::Value& invoice, Json::Value& plays)
+   {
+       int result = 0;
+       for (Json::Value& perf : invoice["performances"]) {
+           result += volumeCreditsFor(perf, PLAY);
+       }
+       return result;
+   }
+
+   Bill statement(Json::Value& invoice, Json::Value& plays)
+   {
+       Bill bill(invoice["customer"].asString());
+       for (Json::Value& perf : invoice["performances"]) {
+           Play playPay(PLAY["name"].asString(), amountFor(perf, PLAY), perf["audience"].asInt());
+           bill.plays.push_back(playPay);
+       }
+       bill.total = totalAmount(invoice, plays);
+       bill.credit = totalVolumeCredits(invoice, plays);
+       return bill;
+   }
+   ```
+
+   [^ 注 ]: 将一个循环拆成三个是一种影响性能的做法。
+
+   重构至此，欣赏一下代码的全貌
+
+   ```cpp
+   int amountFor(const Json::Value& performance, const Json::Value& play)
+   {
+       int result = 0;
+       if (!strcmp(play["type"].asString().c_str(), "tragedy"))
+       {
+           result = 400;
+           if (performance["audience"].asInt() > 30) {
+               result += 10 * (performance["audience"].asInt() - 30);
+           }
+       }
+       else if (!strcmp(play["type"].asString().c_str(), "comedy"))
+       {
+           result = 300;
+           if (performance["audience"].asInt() > 20) {
+               result += 100 + 5 * (performance["audience"].asInt() - 20);
+           }
+           result += 3 * performance["audience"].asInt();
+       }
+       else
+       {
+           throw "unknow type";
+       }
+       return result;
+   }
+
+   int volumeCreditsFor(const Json::Value& performance, const Json::Value& play) {
+       int result = 0;
+       result += max((performance["audience"].asInt() - 30), 0);
+       // add extra credit for every ten comedy attendees
+       if ("comedy" == play["type"].asString()) result += floor(performance["audience"].asInt() / 5);
+       return result;
+   }
+
+   #define PLAY plays[perf["playID"].asString()]
+
+   int totalAmount(Json::Value& invoice, Json::Value& plays)
+   {
+       int result = 0;
+       for (Json::Value& perf : invoice["performances"]) {
+           result += amountFor(perf, PLAY);
+       }
+       return result;
+   }
+   int totalVolumeCredits(Json::Value& invoice, Json::Value& plays)
+   {
+       int result = 0;
+       for (Json::Value& perf : invoice["performances"]) {
+           result += volumeCreditsFor(perf, PLAY);
+       }
+       return result;
+   }
+
+   Bill statement(Json::Value& invoice, Json::Value& plays)
+   {
+       Bill bill(invoice["customer"].asString());
+       for (Json::Value& perf : invoice["performances"]) {
+           Play playPay(PLAY["name"].asString(), amountFor(perf, PLAY), perf["audience"].asInt());
+           bill.plays.push_back(playPay);
+       }
+       bill.total = totalAmount(invoice, plays);
+       bill.credit = totalVolumeCredits(invoice, plays);
+       return bill;
+   }
+   ```
+
+   ​
 
 
 

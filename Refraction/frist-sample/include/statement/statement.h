@@ -25,7 +25,7 @@ struct Bill {
 
 void printBill(Bill& bill)
 {
-    cout << "\n========" << "print statement" << "========" << endl;
+    cout << "========" << "print statement" << "========" << endl;
     cout << "Statement for : " << bill.customer.c_str() << endl;
     for (int i = 0; i < bill.plays.size(); i++)
     {
@@ -36,46 +36,66 @@ void printBill(Bill& bill)
     printf("You earned %d credits\n", bill.credit);
 }
 
+int amountFor(const Json::Value& performance, const Json::Value& play)
+{
+    int result = 0;
+    if (!strcmp(play["type"].asString().c_str(), "tragedy"))
+    {
+        result = 400;
+        if (performance["audience"].asInt() > 30) {
+            result += 10 * (performance["audience"].asInt() - 30);
+        }
+    }
+    else if (!strcmp(play["type"].asString().c_str(), "comedy"))
+    {
+        result = 300;
+        if (performance["audience"].asInt() > 20) {
+            result += 100 + 5 * (performance["audience"].asInt() - 20);
+        }
+        result += 3 * performance["audience"].asInt();
+    }
+    else
+    {
+        throw "unknow type";
+    }
+    return result;
+}
+
+int volumeCreditsFor(const Json::Value& performance, const Json::Value& play) {
+    int result = 0;
+    result += max((performance["audience"].asInt() - 30), 0);
+    // add extra credit for every ten comedy attendees
+    if ("comedy" == play["type"].asString()) result += floor(performance["audience"].asInt() / 5);
+    return result;
+}
+
+#define PLAY plays[perf["playID"].asString()]
+
+int totalAmount(Json::Value& invoice, Json::Value& plays)
+{
+    int result = 0;
+    for (Json::Value& perf : invoice["performances"]) {
+        result += amountFor(perf, PLAY);
+    }
+    return result;
+}
+int totalVolumeCredits(Json::Value& invoice, Json::Value& plays)
+{
+    int result = 0;
+    for (Json::Value& perf : invoice["performances"]) {
+        result += volumeCreditsFor(perf, PLAY);
+    }
+    return result;
+}
+
 Bill statement(Json::Value& invoice, Json::Value& plays)
 {
-    int totalAmount = 0;
-    int volumeCredits = 0;
     Bill bill(invoice["customer"].asString());
-
     for (Json::Value& perf : invoice["performances"]) {
-        Json::Value& play = plays[perf["playID"].asString()];
-        int thisAmount = 0;
-        if (!strcmp(play["type"].asString().c_str(), "tragedy"))
-        {
-            thisAmount = 400;
-            if (perf["audience"].asInt() > 30) {
-                thisAmount += 10 * (perf["audience"].asInt() - 30);
-            }
-        }
-        else if (!strcmp(play["type"].asString().c_str(), "comedy"))
-        {
-            thisAmount = 300;
-            if (perf["audience"].asInt() > 20) {
-                thisAmount += 100 + 5 * (perf["audience"].asInt() - 20);
-            }
-            thisAmount += 3 * perf["audience"].asInt();
-        }
-        else
-        {
-            cout << "ERROR" << endl;;
-        }
-
-        // add volume credits
-        volumeCredits += max((perf["audience"].asInt() -  30), 0);
-        // add extra credit for every ten comedy attendees
-        if ("comedy" ==  play["type"].asString()) volumeCredits += floor(perf["audience"].asInt()/5);
-        // print line for this order
-        totalAmount += thisAmount;
-        Play playPay(play["name"].asString(), thisAmount, perf["audience"].asInt());
+        Play playPay(PLAY["name"].asString(), amountFor(perf, PLAY), perf["audience"].asInt());
         bill.plays.push_back(playPay);
     }
-    bill.total = totalAmount;
-    bill.credit = volumeCredits;
-
+    bill.total = totalAmount(invoice, plays);
+    bill.credit = totalVolumeCredits(invoice, plays);
     return bill;
 }
