@@ -35,6 +35,9 @@
     <ClInclude Include="frist-sample\include\statement\statement.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="frist-sample\include\statement\Bill.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="frist-sample\data\invoices.json" />

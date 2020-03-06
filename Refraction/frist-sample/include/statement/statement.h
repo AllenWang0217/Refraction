@@ -1,40 +1,8 @@
 #pragma once
 
 #include "json/json.h"
-#include <string>
-#include <iostream>
+#include "Bill.h"
 #include <algorithm>
-#include <vector>
-
-using namespace std;
-
-struct Play {
-    Play(string name, int cost, int seats) : name(name), cost(cost), seats(seats) {};
-    string name;
-    int cost;
-    int seats;
-};
-struct Bill {
-    Bill() {};
-    Bill(string customer) : customer(customer), total(0), credit(0) {};
-    string customer;
-    vector<Play> plays;
-    int total;
-    int credit;
-};
-
-void printBill(Bill& bill)
-{
-    cout << "========" << "print statement" << "========" << endl;
-    cout << "Statement for : " << bill.customer.c_str() << endl;
-    for (int i = 0; i < bill.plays.size(); i++)
-    {
-        Play& play = bill.plays[i];
-        printf("    %s: %d (%d seats)\n", play.name.c_str(), play.cost, play.seats);
-    }
-    printf("Amount owed is %d\n", bill.total);
-    printf("You earned %d credits\n", bill.credit);
-}
 
 int amountFor(const Json::Value& performance, const Json::Value& play)
 {
@@ -71,29 +39,29 @@ int volumeCreditsFor(const Json::Value& performance, const Json::Value& play) {
 
 #define PLAY plays[perf["playID"].asString()]
 
-int totalAmount(Json::Value& invoice, Json::Value& plays)
+int totalAmount(const Json::Value& invoice, const Json::Value& plays)
 {
     int result = 0;
-    for (Json::Value& perf : invoice["performances"]) {
+    for (const Json::Value& perf : invoice["performances"]) {
         result += amountFor(perf, PLAY);
     }
     return result;
 }
-int totalVolumeCredits(Json::Value& invoice, Json::Value& plays)
+int totalVolumeCredits(const Json::Value& invoice, const  Json::Value& plays)
 {
     int result = 0;
-    for (Json::Value& perf : invoice["performances"]) {
+    for (const Json::Value& perf : invoice["performances"]) {
         result += volumeCreditsFor(perf, PLAY);
     }
     return result;
 }
 
-Bill statement(Json::Value& invoice, Json::Value& plays)
+Bill statement(const Json::Value& invoice, const Json::Value& plays)
 {
     Bill bill(invoice["customer"].asString());
-    for (Json::Value& perf : invoice["performances"]) {
-        Play playPay(PLAY["name"].asString(), amountFor(perf, PLAY), perf["audience"].asInt());
-        bill.plays.push_back(playPay);
+    for (const Json::Value& perf : invoice["performances"]) {
+        Play play(PLAY["name"].asString(), amountFor(perf, PLAY), perf["audience"].asInt());
+        bill.plays.push_back(play);
     }
     bill.total = totalAmount(invoice, plays);
     bill.credit = totalVolumeCredits(invoice, plays);

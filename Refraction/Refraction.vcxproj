@@ -156,6 +156,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="frist-sample\include\json-reader\JsonReader.h" />
+    <ClInclude Include="frist-sample\include\statement\Bill.h" />
     <ClInclude Include="frist-sample\include\statement\statement.h" />
     <ClInclude Include="FristSimple\json-reader\JsonReader.h" />
   </ItemGroup>

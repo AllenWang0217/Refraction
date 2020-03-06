@@ -8,24 +8,22 @@ struct TestStatement : public ::testing::Test
 protected:
     virtual void SetUp()
     {
-        Json::Value invoices;
         std::string invoicesPath = "frist-sample\\data\\invoices.json";
         jsonReader(invoicesPath, invoices);
         //printInvoices(invoices);
 
-        Json::Value plays;
         std::string playsPath = "frist-sample\\data\\plays.json";
         jsonReader(playsPath, plays);
         //printPlays(plays);
-
-        bill = statement(invoices, plays);
-        printBill(bill);
     }
-    Bill bill;
+    Json::Value invoices;
+    Json::Value plays;
 };
 
 TEST_F(TestStatement, case1)
 {
+    Bill& bill = statement(invoices, plays);
+    printBill(bill);
     ASSERT_TRUE(bill.customer == "BigCo");
     ASSERT_TRUE(bill.plays.size() == 3);
     ASSERT_TRUE(bill.plays[0].name == "Hamlet");
