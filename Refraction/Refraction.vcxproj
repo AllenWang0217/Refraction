@@ -155,9 +155,13 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="frist-sample\include\calculator\CalculatorMaker.h" />
     <ClInclude Include="frist-sample\include\json-reader\JsonReader.h" />
     <ClInclude Include="frist-sample\include\statement\Bill.h" />
+    <ClInclude Include="frist-sample\include\calculator\ComedyCalculator.h" />
+    <ClInclude Include="frist-sample\include\calculator\PerformanceCalculator.h" />
     <ClInclude Include="frist-sample\include\statement\statement.h" />
+    <ClInclude Include="frist-sample\include\calculator\TragedyCalculator.h" />
     <ClInclude Include="FristSimple\json-reader\JsonReader.h" />
   </ItemGroup>
   <ItemGroup>

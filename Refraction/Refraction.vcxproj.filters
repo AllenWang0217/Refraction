@@ -38,6 +38,18 @@
     <ClInclude Include="frist-sample\include\statement\Bill.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="frist-sample\include\calculator\ComedyCalculator.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="frist-sample\include\calculator\PerformanceCalculator.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="frist-sample\include\calculator\TragedyCalculator.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="frist-sample\include\calculator\CalculatorMaker.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="frist-sample\data\invoices.json" />

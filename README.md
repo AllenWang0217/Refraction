@@ -7,7 +7,7 @@ IDE；VisualStudio 2015
 
 ## 第一章 重构，第一个实例
 
-背景：剧院请剧团演出。客户（剧院）会指定几出剧目，而剧团则根据观众人数以及剧目类型像客户（剧院）收费。剧目类型分两种：喜剧、悲剧。另外，再给客户（剧院）发出账单时，还会根据观众人给出客户（剧院）“观众量积分”（volume credt）优惠，下次再请该剧团表演时可以用到。
+背景：剧院请剧团演出。客户（剧院）会指定几出剧目，而剧团则根据观众人数以及剧目类型向客户（剧院）收费。剧目类型分两种：喜剧、悲剧。另外，在给客户（剧院）发出账单时，还会根据观众人数给出客户（剧院）“观众量积分”（volume credit）优惠，下次再请该剧团表演时可以用到。
 
 剧目：
 
@@ -42,9 +42,9 @@ IDE；VisualStudio 2015
 }
 ```
 
-### 初始代码
-
 前提：[用C++读取Json](https://www.jianshu.com/p/e0c1f3fdf6f9)([jsoncpp源码](https://github.com/open-source-parsers/jsoncpp))
+
+### 初始代码
 
 下面这个简单的函数用以打印账单详情（钱币单位做了简化）
 
@@ -281,7 +281,7 @@ Bill statement(Json::Value& invoice, Json::Value& plays)
 }
 ```
 
-[^ 注 ]: 因为这里`amountFor`使用了两遍[^书中也使用了两遍]，是一种影响性能的做法
+[^注]: 因为这里`amountFor`使用了两遍[^书中也使用了两遍]，是一种影响性能的做法
 
 2. 提炼观众积分量函数
 
@@ -350,7 +350,7 @@ Bill statement(Json::Value& invoice, Json::Value& plays)
 }
 ```
 
-[^ 注 ]: 将一个循环拆成三个是一种影响性能的做法。
+[^ 注]: 将一个循环拆成三个是一种影响性能的做法。
 
 重构至此，欣赏一下代码的全貌
 
@@ -422,9 +422,9 @@ Bill statement(Json::Value& invoice, Json::Value& plays)
 
 ### 拆分计算阶段与格式化阶段
 
-书中是想为账单提供一个HTML版本，不论是文本版本和HTML版本账单，其账单计算都是一致的。只是在展现方式上有区别。为了实现复用，就可以进行**拆分阶段**。将逻辑分成两个部分：1、提供详单所需的数据；2、将数据渲染成文本或HTML。第一阶段会创建一个中转数据结构，再把它传递给第二个阶段。
+书中是想为账单再提供一个HTML版本。考虑到，不论是文本版本和HTML版本，其账单计算都是一致的，只是在展现形式上有所区别。为了实现复用，就可以使用**拆分阶段**。将逻辑分成两个部分：1、提供详单所需的数据；2、将数据渲染成文本或HTML。第一阶段会创建一个中转数据结构，再把它传递给第二个阶段。
 
-这和我们之前为了增加测试用例而把计算和打印不谋而合。只是和文章稍有出入的是，对于中转结构的定义。
+这和我们之前为了增加测试用例而把计算和打印拆分不谋而合。只是对于中转结构的名称稍有出入。
 
 ```cpp
 //本文结构
@@ -452,7 +452,7 @@ statementData.totalVolumeCredits = totalVolumeCredits(statementData);
 
 本质上是没什么区别的。这里就不做修改了。
 
-另外文中也提到了，将两个阶段分离到两个文件。这里我们也把账单相关的定义拆分到`Bill.cpp`中
+另外文中也提到了，将两个阶段分离到两个文件。这里我们也把账单相关的定义拆分到`Bill.h`中
 
 ```cpp
 #pragma once
@@ -490,7 +490,109 @@ void printBill(Bill& bill)
 }
 ```
 
-[^注 ]: 对于C++而言，更严谨的应该是将`Play`定义为`Bill`的私有类，将`printBill`作为`Bill`的一个属性， 并且将成员变量定义为私有，为其提供成员函数进行访问。但考虑到我们只是想将`Bill`作为中转数据结构，就没必要把`Bill`封装的过于复杂。
+[^注 ]: 对于C++而言，更为严谨的应该是将`Play`定义为`Bill`的私有类，将`printBill`作为`Bill`的一个属性， 并且将成员变量定义为私有，为其提供成员函数进行访问。但考虑到我们只是想将`Bill`作为中转数据结构，就没必要把`Bill`封装的过于复杂。
+
+### 按类型重组计算过程
+
+这一节的主要思想，是将每种账单的计算提取出来，作为一个独立的计算器，并让计算器具有多态属性（前面还自说本例就是一个面向过程的账单计算，没必要故意搞复杂了，真是啪啪打脸啊。。。）
+
+废话不多说，上类图（类似策略模式）：
+
+![calculator](./pic/calculator.png)
+
+使用**工厂函数取代构造函数**方法，`CalculatorMaker`用以根据演出类型创建演出计算器
+
+```cpp
+struct CalculatorMaker {
+    CalculatorMaker(const Json::Value& performance, const Json::Value& play)
+    {
+        if (!strcmp(play["type"].asString().c_str(), "tragedy"))
+        {
+            calculator = new TragedyCalculator(performance, play);
+        }
+        else if (!strcmp(play["type"].asString().c_str(), "comedy"))
+        {
+            calculator = new ComedyCalculator(performance, play);
+        }
+        else
+        {
+            throw "unknow type";
+        }
+    }
+    ~CalculatorMaker() { delete calculator; calculator = NULL; }
+
+    PerformanceCalculator* getCalculator() { return calculator; }
+private:
+    PerformanceCalculator* calculator;
+};
+```
+
+对于计算器的创建，使用**子类取代类型码**，引入子类`ComedyCalculator`、`TragedyCalculator`，继承父类`PerformanceCalculator`。
+
+```cpp
+// PerformanceCalculator.h
+struct PerformanceCalculator {
+    PerformanceCalculator(const Json::Value& performance, const Json::Value& play) : performance(performance), play(play) {};
+    virtual ~PerformanceCalculator() {};
+    virtual int amount() = 0;
+    virtual int volumeCredits(){
+        return std::max((performance["audience"].asInt() - 30), 0);
+    }
+protected:
+    const Json::Value& performance;
+    const Json::Value& play;
+};
+// ComedyCalculator.h
+struct ComedyCalculator : PerformanceCalculator
+{
+    ComedyCalculator(const Json::Value& performance, const Json::Value& play) : PerformanceCalculator(performance, play) {};
+    int amount()
+    {
+        int result = 300;
+        if (performance["audience"].asInt() > 20) {
+            result += 100 + 5 * (performance["audience"].asInt() - 20);
+        }
+        result += 3 * performance["audience"].asInt();
+        return result;
+    }
+    int volumeCredits() {
+        return PerformanceCalculator::volumeCredits() + floor(performance["audience"].asInt() / 5);
+    }
+};
+// TragedyCalculator.h
+struct TragedyCalculator : PerformanceCalculator
+{
+    TragedyCalculator(const Json::Value& performance, const Json::Value& play) : PerformanceCalculator(performance, play) {};
+    int amount()
+    {
+        int result = 400;
+        if (performance["audience"].asInt() > 30) {
+            result += 10 * (performance["audience"].asInt() - 30);
+        }
+        return result;
+    }
+};
+```
+
+这样计算函数就变成:
+
+```cpp
+int amountFor(const Json::Value& performance, const Json::Value& play)
+{
+    CalculatorMaker maker(performance, play);
+    return maker.getCalculator()->amount();
+}
+
+int volumeCreditsFor(const Json::Value& performance, const Json::Value& play) 
+{
+    CalculatorMaker maker(performance, play);
+    return maker.getCalculator()->volumeCredits();
+}
+```
+
+因为书中用使用的js，不需要考虑内存的释放，这里针对C++做了相应的修改。通过使用类似于智能指针的方式，将指针放在`CalculatorMaker`的析构函数中进行释放。
+
+这样如果有新增演出类型，只需要多加一个子类，然后在`CalculatorMaker`中增加一个分支即可。
 
 
 

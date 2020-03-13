@@ -1,40 +1,18 @@
 #pragma once
 
-#include "json/json.h"
 #include "Bill.h"
-#include <algorithm>
+#include "../calculator/CalculatorMaker.h"
 
 int amountFor(const Json::Value& performance, const Json::Value& play)
 {
-    int result = 0;
-    if (!strcmp(play["type"].asString().c_str(), "tragedy"))
-    {
-        result = 400;
-        if (performance["audience"].asInt() > 30) {
-            result += 10 * (performance["audience"].asInt() - 30);
-        }
-    }
-    else if (!strcmp(play["type"].asString().c_str(), "comedy"))
-    {
-        result = 300;
-        if (performance["audience"].asInt() > 20) {
-            result += 100 + 5 * (performance["audience"].asInt() - 20);
-        }
-        result += 3 * performance["audience"].asInt();
-    }
-    else
-    {
-        throw "unknow type";
-    }
-    return result;
+    CalculatorMaker maker(performance, play);
+    return maker.getCalculator()->amount();
 }
 
-int volumeCreditsFor(const Json::Value& performance, const Json::Value& play) {
-    int result = 0;
-    result += max((performance["audience"].asInt() - 30), 0);
-    // add extra credit for every ten comedy attendees
-    if ("comedy" == play["type"].asString()) result += floor(performance["audience"].asInt() / 5);
-    return result;
+int volumeCreditsFor(const Json::Value& performance, const Json::Value& play) 
+{
+    CalculatorMaker maker(performance, play);
+    return maker.getCalculator()->volumeCredits();
 }
 
 #define PLAY plays[perf["playID"].asString()]
